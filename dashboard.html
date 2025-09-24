@@ -218,12 +218,73 @@
         </div>
 
         <div class="filters">
-            <div class="filter-buttons">
-                <button class="filter-btn active" onclick="filterCandidates('all')">All</button>
-                <button class="filter-btn" onclick="filterCandidates('processed')">Processed</button>
-                <button class="filter-btn" onclick="filterCandidates('uploaded')">Needs Processing</button>
-                <button class="filter-btn" onclick="filterCandidates('failed')">Needs Attention</button>
-                <button class="filter-btn" onclick="filterCandidates('duplicate')">Duplicates</button>
+            <!-- Collapsible Filter Header -->
+            <div style="display: flex; justify-content: space-between; align-items: center; cursor: pointer; margin-bottom: 15px;" onclick="toggleFilters()">
+                <h3 style="color: #333; margin: 0;">🔽 Filters & Export</h3>
+                <span id="filterToggle" style="color: #667eea; font-size: 18px; transition: transform 0.3s;">▼</span>
+            </div>
+            
+            <!-- Collapsible Filter Content -->
+            <div id="filterContent" style="display: block;">
+                <!-- Search Inputs -->
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-bottom: 20px;">
+                    <input type="text" id="nameFilter" placeholder="🔍 Search by Name" 
+                           style="padding: 12px; border: 2px solid #e0e4ff; border-radius: 25px; outline: none; font-size: 14px;"
+                           oninput="applyFilters()">
+                    <input type="text" id="emailFilter" placeholder="📧 Search by Email" 
+                           style="padding: 12px; border: 2px solid #e0e4ff; border-radius: 25px; outline: none; font-size: 14px;"
+                           oninput="applyFilters()">
+                    <select id="tierFilter" 
+                            style="padding: 12px; border: 2px solid #e0e4ff; border-radius: 25px; outline: none; font-size: 14px; background: white;"
+                            onchange="applyFilters()">
+                        <option value="">🏆 All Tiers</option>
+                        <option value="Tier 1">Tier 1</option>
+                        <option value="Tier 2">Tier 2</option>
+                        <option value="Tier 3">Tier 3</option>
+                    </select>
+                    <select id="languageFilter" 
+                            style="padding: 12px; border: 2px solid #e0e4ff; border-radius: 25px; outline: none; font-size: 14px; background: white;"
+                            onchange="applyFilters()">
+                        <option value="">🌍 All Languages</option>
+                    </select>
+                    <select id="serviceLocationFilter" 
+                            style="padding: 12px; border: 2px solid #e0e4ff; border-radius: 25px; outline: none; font-size: 14px; background: white;"
+                            onchange="applyFilters()">
+                        <option value="">🌎 All Locations</option>
+                        <option value="Onshore">Onshore</option>
+                        <option value="Offshore">Offshore</option>
+                        <option value="Unknown">Unknown</option>
+                    </select>
+                    <select id="roleFilter" 
+                            style="padding: 12px; border: 2px solid #e0e4ff; border-radius: 25px; outline: none; font-size: 14px; background: white;"
+                            onchange="applyFilters()">
+                        <option value="">💼 All Roles</option>
+                        <option value="Interpreter">Interpreter</option>
+                        <option value="Translator">Translator</option>
+                        <option value="Not Relevant">Not Relevant</option>
+                    </select>
+                </div>
+
+                <!-- Download Buttons -->
+                <div style="display: flex; gap: 10px; margin-bottom: 20px;">
+                    <button class="filter-btn" onclick="downloadCSV()" 
+                            style="background: #28a745; color: white;">
+                        📊 Download CSV
+                    </button>
+                    <button class="filter-btn" onclick="downloadExcel()" 
+                            style="background: #17a2b8; color: white;">
+                        📈 Download Excel
+                    </button>
+                </div>
+                
+                <!-- Status Filter Buttons -->
+                <div class="filter-buttons">
+                    <button class="filter-btn active" onclick="filterCandidates('all')">All</button>
+                    <button class="filter-btn" onclick="filterCandidates('processed')">Processed</button>
+                    <button class="filter-btn" onclick="filterCandidates('uploaded')">Needs Processing</button>
+                    <button class="filter-btn" onclick="filterCandidates('failed')">Needs Attention</button>
+                    <button class="filter-btn" onclick="filterCandidates('duplicate')">Duplicates</button>
+                </div>
             </div>
         </div>
 
@@ -262,6 +323,7 @@
                 const response = await fetch('/candidates');
                 allCandidates = await response.json();
                 updateStats();
+                populateLanguageFilter();
                 displayCandidates();
             } catch (error) {
                 console.error('Error loading candidates:', error);
@@ -285,19 +347,127 @@
             currentFilter = status;
             document.querySelectorAll('.filter-btn').forEach(btn => btn.classList.remove('active'));
             event.target.classList.add('active');
-            displayCandidates();
+            applyFilters();
         }
 
-        function displayCandidates() {
-            const tbody = document.getElementById('candidatesBody');
+        function toggleFilters() {
+            const content = document.getElementById('filterContent');
+            const toggle = document.getElementById('filterToggle');
+            
+            if (content.style.display === 'none') {
+                content.style.display = 'block';
+                toggle.style.transform = 'rotate(0deg)';
+            } else {
+                content.style.display = 'none';
+                toggle.style.transform = 'rotate(-90deg)';
+            }
+        }
+
+        function populateLanguageFilter() {
+            const languageSet = new Set();
+            Object.values(allCandidates).forEach(candidate => {
+                const data = candidate.parsed_data || {};
+                if (data.primary_language) {
+                    languageSet.add(data.primary_language);
+                }
+                if (Array.isArray(data.other_spoken_languages)) {
+                    data.other_spoken_languages.forEach(lang => {
+                        if (lang.trim()) languageSet.add(lang.trim());
+                    });
+                }
+            });
+
+            const languageFilter = document.getElementById('languageFilter');
+            // Clear existing options except the first one
+            languageFilter.innerHTML = '<option value="">🌍 All Languages</option>';
+            
+            // Add unique languages
+            Array.from(languageSet).sort().forEach(language => {
+                const option = document.createElement('option');
+                option.value = language;
+                option.textContent = language;
+                languageFilter.appendChild(option);
+            });
+        }
+
+        function applyFilters() {
+            const nameFilter = document.getElementById('nameFilter').value.toLowerCase();
+            const emailFilter = document.getElementById('emailFilter').value.toLowerCase();
+            const tierFilter = document.getElementById('tierFilter').value;
+            const languageFilter = document.getElementById('languageFilter').value;
+            const serviceLocationFilter = document.getElementById('serviceLocationFilter').value;
+            const roleFilter = document.getElementById('roleFilter').value;
+            
             let candidates = Object.values(allCandidates);
 
+            // Apply status filter
             if (currentFilter !== 'all') {
                 candidates = candidates.filter(c => c.status === currentFilter);
             }
 
+            // Apply name filter
+            if (nameFilter) {
+                candidates = candidates.filter(c => {
+                    const name = c.parsed_data?.name || '';
+                    return name.toLowerCase().includes(nameFilter);
+                });
+            }
+
+            // Apply email filter
+            if (emailFilter) {
+                candidates = candidates.filter(c => {
+                    const email = c.parsed_data?.email || c.id || '';
+                    return email.toLowerCase().includes(emailFilter);
+                });
+            }
+
+            // Apply tier filter
+            if (tierFilter) {
+                candidates = candidates.filter(c => {
+                    const tier = c.parsed_data?.tier_level || '';
+                    return tier === tierFilter;
+                });
+            }
+
+            // Apply language filter
+            if (languageFilter) {
+                candidates = candidates.filter(c => {
+                    const data = c.parsed_data || {};
+                    const primaryLang = data.primary_language || '';
+                    const otherLangs = Array.isArray(data.other_spoken_languages) ? data.other_spoken_languages : [];
+                    
+                    return primaryLang === languageFilter || otherLangs.includes(languageFilter);
+                });
+            }
+
+            // Apply service location filter
+            if (serviceLocationFilter) {
+                candidates = candidates.filter(c => {
+                    const location = c.parsed_data?.service_location || '';
+                    return location === serviceLocationFilter;
+                });
+            }
+
+            // Apply role filter
+            if (roleFilter) {
+                candidates = candidates.filter(c => {
+                    const role = c.parsed_data?.role_relevance || '';
+                    return role === roleFilter;
+                });
+            }
+
+            displayFilteredCandidates(candidates);
+        }
+
+        function displayCandidates() {
+            applyFilters();
+        }
+
+        function displayFilteredCandidates(candidates) {
+            const tbody = document.getElementById('candidatesBody');
+
             if (candidates.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="8" style="text-align: center; color: #999;">No candidates found</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="11" style="text-align: center; color: #999;">No candidates found</td></tr>';
                 return;
             }
 
@@ -341,6 +511,14 @@
         function viewCandidate(candidateId) {
             const candidate = allCandidates[candidateId];
             alert(JSON.stringify(candidate.parsed_data, null, 2));
+        }
+
+        function downloadCSV() {
+            window.open('/export/csv', '_blank');
+        }
+
+        function downloadExcel() {
+            window.open('/export/excel', '_blank');
         }
 
         loadCandidates();

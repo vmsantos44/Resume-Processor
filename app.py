@@ -2,8 +2,10 @@ import os
 import json
 import hashlib
 import requests
+import csv
+import io
 from datetime import datetime
-from flask import Flask, request, jsonify, render_template_string
+from flask import Flask, request, jsonify, render_template_string, Response
 from flask_cors import CORS
 from werkzeug.utils import secure_filename
 import PyPDF2
@@ -12,6 +14,7 @@ import docx
 from openai import OpenAI
 from dotenv import load_dotenv
 import re
+from openpyxl import Workbook
 
 load_dotenv()
 
@@ -106,23 +109,49 @@ def clean_and_fix_text(text):
     return text.strip()
 
 def extract_text_from_docx(filepath):
+    text = ""
+    
+    try:
+        import mammoth
+        with open(filepath, "rb") as docx_file:
+            result = mammoth.extract_raw_text(docx_file)
+            text = result.value
+            if text and len(text.strip()) > 50:
+                return clean_and_fix_text(text)
+    except Exception as e:
+        pass
+    
     pdf_path = convert_docx_to_pdf(filepath)
     if pdf_path and os.path.exists(pdf_path):
         text = extract_text_from_pdf(pdf_path)
-        return clean_and_fix_text(text)
+        if text and len(text.strip()) > 50:
+            return clean_and_fix_text(text)
     
     try:
         doc = docx.Document(filepath)
         text = "\n".join([paragraph.text for paragraph in doc.paragraphs])
-        return clean_and_fix_text(text)
+        
+        if doc.tables:
+            for table in doc.tables:
+                for row in table.rows:
+                    for cell in row.cells:
+                        text += "\n" + cell.text
+        
+        if text and len(text.strip()) > 10:
+            return clean_and_fix_text(text)
     except Exception as e:
-        try:
-            import subprocess
-            result = subprocess.run(['textutil', '-convert', 'txt', '-stdout', filepath], 
-                                  capture_output=True, text=True, timeout=10)
+        pass
+    
+    try:
+        import subprocess
+        result = subprocess.run(['textutil', '-convert', 'txt', '-stdout', filepath], 
+                              capture_output=True, text=True, timeout=10)
+        if result.stdout and len(result.stdout.strip()) > 10:
             return clean_and_fix_text(result.stdout)
-        except:
-            return ""
+    except:
+        pass
+    
+    return text if text else ""
 
 def extract_text(filepath, file_extension):
     if file_extension == 'pdf':
@@ -487,6 +516,133 @@ def settings_page():
 @app.route('/dashboard')
 def dashboard():
     return render_template_string(open('dashboard.html').read())
+
+@app.route('/export/csv')
+def export_csv():
+    db = get_candidates_db()
+    candidates = list(db.values())
+    
+    output = io.StringIO()
+    writer = csv.writer(output)
+    
+    # Headers
+    headers = [
+        'Name', 'Email', 'Primary Language', 'Other Languages', 'Service Location',
+        'Mobile', 'Remote Experience', 'Tier Level', 'Tier Score', 'Education',
+        'Qualify', 'Role Relevance', 'Training Needed', 'Processing Notes',
+        'Status', 'Uploaded At', 'Processed At', 'Synced', 'Address'
+    ]
+    writer.writerow(headers)
+    
+    # Data rows
+    for candidate in candidates:
+        data = candidate.get('parsed_data', {})
+        address_parts = []
+        if data.get('address'):
+            addr = data['address']
+            address_parts = [
+                addr.get('street', ''),
+                addr.get('city', ''),
+                addr.get('state', ''),
+                addr.get('zip_code', ''),
+                addr.get('country', '')
+            ]
+        
+        row = [
+            data.get('name', ''),
+            data.get('email', candidate.get('id', '')),
+            data.get('primary_language', ''),
+            '; '.join(data.get('other_spoken_languages', [])) if isinstance(data.get('other_spoken_languages'), list) else '',
+            data.get('service_location', ''),
+            data.get('mobile', ''),
+            'Yes' if data.get('remote_experience') else 'No',
+            data.get('tier_level', ''),
+            data.get('tier_score', 0),
+            data.get('education', ''),
+            data.get('qualify', ''),
+            data.get('role_relevance', ''),
+            'Yes' if data.get('training_needed') else 'No',
+            data.get('processing_notes', ''),
+            candidate.get('status', ''),
+            candidate.get('uploaded_at', ''),
+            candidate.get('processed_at', ''),
+            'Yes' if candidate.get('synced') else 'No',
+            ', '.join(filter(None, address_parts))
+        ]
+        writer.writerow(row)
+    
+    output.seek(0)
+    return Response(
+        output.getvalue(),
+        mimetype='text/csv',
+        headers={'Content-Disposition': f'attachment; filename=candidates_{datetime.now().strftime("%Y%m%d_%H%M%S")}.csv'}
+    )
+
+@app.route('/export/excel')
+def export_excel():
+    db = get_candidates_db()
+    candidates = list(db.values())
+    
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Candidates"
+    
+    # Headers
+    headers = [
+        'Name', 'Email', 'Primary Language', 'Other Languages', 'Service Location',
+        'Mobile', 'Remote Experience', 'Tier Level', 'Tier Score', 'Education',
+        'Qualify', 'Role Relevance', 'Training Needed', 'Processing Notes',
+        'Status', 'Uploaded At', 'Processed At', 'Synced', 'Address'
+    ]
+    ws.append(headers)
+    
+    # Data rows
+    for candidate in candidates:
+        data = candidate.get('parsed_data', {})
+        address_parts = []
+        if data.get('address'):
+            addr = data['address']
+            address_parts = [
+                addr.get('street', ''),
+                addr.get('city', ''),
+                addr.get('state', ''),
+                addr.get('zip_code', ''),
+                addr.get('country', '')
+            ]
+        
+        row = [
+            data.get('name', ''),
+            data.get('email', candidate.get('id', '')),
+            data.get('primary_language', ''),
+            '; '.join(data.get('other_spoken_languages', [])) if isinstance(data.get('other_spoken_languages'), list) else '',
+            data.get('service_location', ''),
+            data.get('mobile', ''),
+            'Yes' if data.get('remote_experience') else 'No',
+            data.get('tier_level', ''),
+            data.get('tier_score', 0),
+            data.get('education', ''),
+            data.get('qualify', ''),
+            data.get('role_relevance', ''),
+            'Yes' if data.get('training_needed') else 'No',
+            data.get('processing_notes', ''),
+            candidate.get('status', ''),
+            candidate.get('uploaded_at', ''),
+            candidate.get('processed_at', ''),
+            'Yes' if candidate.get('synced') else 'No',
+            ', '.join(filter(None, address_parts))
+        ]
+        ws.append(row)
+    
+    # Save to BytesIO
+    output = io.BytesIO()
+    wb.save(output)
+    output.seek(0)
+    
+    return Response(
+        output.getvalue(),
+        mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        headers={'Content-Disposition': f'attachment; filename=candidates_{datetime.now().strftime("%Y%m%d_%H%M%S")}.xlsx'}
+    )
 
 @app.route('/')
 def index():
