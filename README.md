@@ -43,8 +43,8 @@ A comprehensive web application for processing interpreter/translator resumes wi
 
 1. **Clone the repository**
 ```bash
-git clone <your-repo-url>
-cd Resume\ extract
+git clone https://github.com/vmsantos44/Resume-Processor.git
+cd Resume-Processor
 ```
 
 2. **Install dependencies**
@@ -78,7 +78,7 @@ python app.py
 1. **Import to Replit**
    - Go to [Replit](https://replit.com)
    - Click "Create Repl" → "Import from GitHub"
-   - Paste your repository URL
+   - Paste: `https://github.com/vmsantos44/Resume-Processor.git`
 
 2. **Configure Secrets**
    - In Replit, go to "Tools" → "Secrets"
@@ -93,7 +93,7 @@ python app.py
 ## 📁 File Structure
 
 ```
-Resume extract/
+Resume-Processor/
 ├── app.py                      # Flask backend with all logic
 ├── index.html                  # Upload interface
 ├── dashboard.html              # Admin dashboard
