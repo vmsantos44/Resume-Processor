@@ -1,0 +1,548 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Resume Processor</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .container {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            max-width: 800px;
+            width: 100%;
+            padding: 40px;
+        }
+
+        h1 {
+            color: #333;
+            margin-bottom: 10px;
+            font-size: 2.5em;
+        }
+
+        .subtitle {
+            color: #666;
+            margin-bottom: 30px;
+            font-size: 1.1em;
+        }
+
+        .upload-area {
+            border: 3px dashed #667eea;
+            border-radius: 15px;
+            padding: 50px;
+            text-align: center;
+            transition: all 0.3s ease;
+            cursor: pointer;
+            background: #f8f9ff;
+        }
+
+        .upload-area:hover {
+            border-color: #764ba2;
+            background: #f0f2ff;
+        }
+
+        .upload-area.dragover {
+            border-color: #764ba2;
+            background: #e8eaff;
+            transform: scale(1.02);
+        }
+
+        .upload-icon {
+            font-size: 4em;
+            margin-bottom: 20px;
+        }
+
+        .upload-text {
+            color: #333;
+            font-size: 1.2em;
+            margin-bottom: 10px;
+        }
+
+        .upload-hint {
+            color: #666;
+            font-size: 0.9em;
+        }
+
+        input[type="file"] {
+            display: none;
+        }
+
+        .button {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 15px 40px;
+            border-radius: 30px;
+            font-size: 1.1em;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+            margin-top: 20px;
+        }
+
+        .button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(102, 126, 234, 0.4);
+        }
+
+        .button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
+        .result {
+            margin-top: 30px;
+            padding: 25px;
+            border-radius: 15px;
+            background: #f8f9ff;
+            display: none;
+        }
+
+        .result.show {
+            display: block;
+            animation: slideIn 0.4s ease;
+        }
+
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .result h2 {
+            color: #667eea;
+            margin-bottom: 15px;
+            font-size: 1.5em;
+        }
+
+        .result-item {
+            margin-bottom: 15px;
+            padding: 15px;
+            background: white;
+            border-radius: 10px;
+            border-left: 4px solid #667eea;
+        }
+
+        .result-label {
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 5px;
+        }
+
+        .result-value {
+            color: #666;
+        }
+
+        .skills-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 5px;
+        }
+
+        .skill-tag {
+            background: #667eea;
+            color: white;
+            padding: 5px 15px;
+            border-radius: 20px;
+            font-size: 0.9em;
+        }
+
+        .duplicate-warning {
+            background: #fff3cd;
+            border-left: 4px solid #ffc107;
+            padding: 15px;
+            border-radius: 10px;
+            margin-top: 20px;
+            color: #856404;
+        }
+
+        .success-message {
+            background: #d4edda;
+            border-left: 4px solid #28a745;
+            padding: 15px;
+            border-radius: 10px;
+            margin-top: 20px;
+            color: #155724;
+        }
+
+        .error-message {
+            background: #f8d7da;
+            border-left: 4px solid #dc3545;
+            padding: 15px;
+            border-radius: 10px;
+            margin-top: 20px;
+            color: #721c24;
+        }
+
+        .loading {
+            display: none;
+            text-align: center;
+            margin-top: 20px;
+        }
+
+        .loading.show {
+            display: block;
+        }
+
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #667eea;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 10px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .selected-file {
+            margin-top: 15px;
+            padding: 10px;
+            background: #e8eaff;
+            border-radius: 8px;
+            color: #333;
+            display: none;
+        }
+
+        .selected-file.show {
+            display: block;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>📄 Resume Processor</h1>
+        <p class="subtitle">Upload resumes in PDF or Word format for instant parsing</p>
+        <div style="margin-top: 15px;">
+            <a href="/" style="color: #667eea; text-decoration: none; margin-right: 20px; font-weight: 500;">Upload</a>
+            <a href="/dashboard" style="color: #667eea; text-decoration: none; margin-right: 20px; font-weight: 500;">📊 Dashboard</a>
+            <a href="/settings/page" style="color: #667eea; text-decoration: none; font-weight: 500;">⚙️ Settings</a>
+        </div>
+
+        <div class="upload-area" id="uploadArea">
+            <div class="upload-icon">📤</div>
+            <div class="upload-text">Drag & Drop your resume here</div>
+            <div class="upload-hint">or click to browse (PDF, DOC, DOCX)</div>
+            <input type="file" id="fileInput" accept=".pdf,.doc,.docx">
+        </div>
+
+        <div class="selected-file" id="selectedFile"></div>
+
+        <div style="text-align: center;">
+            <button class="button" id="uploadBtn" disabled>Process Resume</button>
+        </div>
+
+        <div class="loading" id="loading">
+            <div class="spinner"></div>
+            <p>Processing resume...</p>
+        </div>
+
+        <div id="message"></div>
+
+        <div class="result" id="result">
+            <h2>📊 Parsed Resume Data</h2>
+            <div id="resultContent"></div>
+        </div>
+    </div>
+
+    <script>
+        const uploadArea = document.getElementById('uploadArea');
+        const fileInput = document.getElementById('fileInput');
+        const uploadBtn = document.getElementById('uploadBtn');
+        const loading = document.getElementById('loading');
+        const message = document.getElementById('message');
+        const result = document.getElementById('result');
+        const resultContent = document.getElementById('resultContent');
+        const selectedFile = document.getElementById('selectedFile');
+
+        let selectedFileObj = null;
+
+        uploadArea.addEventListener('click', () => fileInput.click());
+
+        uploadArea.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadArea.classList.add('dragover');
+        });
+
+        uploadArea.addEventListener('dragleave', () => {
+            uploadArea.classList.remove('dragover');
+        });
+
+        uploadArea.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadArea.classList.remove('dragover');
+            const file = e.dataTransfer.files[0];
+            handleFileSelect(file);
+        });
+
+        fileInput.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            handleFileSelect(file);
+        });
+
+        function handleFileSelect(file) {
+            if (file) {
+                selectedFileObj = file;
+                selectedFile.textContent = `Selected: ${file.name}`;
+                selectedFile.classList.add('show');
+                uploadBtn.disabled = false;
+            }
+        }
+
+        uploadBtn.addEventListener('click', async () => {
+            if (!selectedFileObj) return;
+
+            const formData = new FormData();
+            formData.append('file', selectedFileObj);
+
+            uploadBtn.disabled = true;
+            loading.classList.add('show');
+            message.innerHTML = '';
+            result.classList.remove('show');
+
+            try {
+                const response = await fetch('/upload', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const data = await response.json();
+
+                loading.classList.remove('show');
+
+                if (data.status === 'duplicate') {
+                    message.innerHTML = `<div class="duplicate-warning">⚠️ Duplicate resume detected! This resume was already processed.</div>`;
+                    displayResult(data.data.parsed_data);
+                } else if (data.status === 'processed') {
+                    const syncMsg = data.synced ? '✓ Synced to CRM' : '⚠️ Not synced to CRM';
+                    message.innerHTML = `<div class="success-message">✓ Resume processed successfully! ${syncMsg}</div>`;
+                    displayResult(data.parsed_data);
+                } else if (data.status === 'failed') {
+                    message.innerHTML = `<div class="error-message">✗ Processing failed after 3 retries: ${data.error}</div>`;
+                } else if (data.status === 'uploaded') {
+                    message.innerHTML = `<div class="duplicate-warning">⚠️ Processing failed. Retry ${data.retry_count}/3: ${data.error}</div>`;
+                } else if (data.error) {
+                    message.innerHTML = `<div class="error-message">✗ Error: ${data.error}</div>`;
+                }
+
+            } catch (error) {
+                loading.classList.remove('show');
+                console.error('Upload error:', error);
+                message.innerHTML = `<div class="error-message">✗ Error: ${error.message}</div>`;
+            }
+
+            uploadBtn.disabled = false;
+        });
+
+        function displayResult(data) {
+            let html = '';
+
+            if (data.name) {
+                html += `
+                    <div class="result-item">
+                        <div class="result-label">Name</div>
+                        <div class="result-value">${data.name}</div>
+                    </div>
+                `;
+            }
+
+            if (data.email) {
+                html += `
+                    <div class="result-item">
+                        <div class="result-label">Email</div>
+                        <div class="result-value">${data.email}</div>
+                    </div>
+                `;
+            }
+
+            if (data.phone) {
+                html += `
+                    <div class="result-item">
+                        <div class="result-label">Phone</div>
+                        <div class="result-value">${data.phone}</div>
+                    </div>
+                `;
+            }
+
+            if (data.primary_language) {
+                html += `
+                    <div class="result-item">
+                        <div class="result-label">Primary Language</div>
+                        <div class="result-value">${data.primary_language}</div>
+                    </div>
+                `;
+            }
+
+            if (data.other_spoken_languages && data.other_spoken_languages.length > 0) {
+                html += `
+                    <div class="result-item">
+                        <div class="result-label">Other Languages</div>
+                        <div class="skills-list">
+                            ${data.other_spoken_languages.map(lang => `<span class="skill-tag">${lang}</span>`).join('')}
+                        </div>
+                    </div>
+                `;
+            }
+
+            if (data.service_location) {
+                html += `
+                    <div class="result-item">
+                        <div class="result-label">Service Location</div>
+                        <div class="result-value">${data.service_location}</div>
+                    </div>
+                `;
+            }
+
+            if (data.mobile) {
+                html += `
+                    <div class="result-item">
+                        <div class="result-label">Mobile</div>
+                        <div class="result-value">${data.mobile}</div>
+                    </div>
+                `;
+            }
+
+            if (data.address) {
+                const addr = data.address;
+                const addressStr = [addr.street, addr.city, addr.state, addr.zip_code, addr.country].filter(Boolean).join(', ');
+                if (addressStr) {
+                    html += `
+                        <div class="result-item">
+                            <div class="result-label">Address</div>
+                            <div class="result-value">${addressStr}</div>
+                        </div>
+                    `;
+                }
+            }
+
+            if (data.remote_experience !== undefined) {
+                html += `
+                    <div class="result-item">
+                        <div class="result-label">Remote Experience</div>
+                        <div class="result-value">${data.remote_experience ? '✓ Yes (VRI/OPI)' : '✗ No (On-site only)'}</div>
+                    </div>
+                `;
+            }
+
+            if (data.tier_level) {
+                html += `
+                    <div class="result-item">
+                        <div class="result-label">Tier Level</div>
+                        <div class="result-value">${data.tier_level} (Score: ${data.tier_score || 0}/100)</div>
+                    </div>
+                `;
+            }
+
+            if (data.role_relevance) {
+                html += `
+                    <div class="result-item">
+                        <div class="result-label">Role Relevance</div>
+                        <div class="result-value">${data.role_relevance}</div>
+                    </div>
+                `;
+            }
+
+            if (data.qualify) {
+                html += `
+                    <div class="result-item">
+                        <div class="result-label">Qualification Status</div>
+                        <div class="result-value">${data.qualify}</div>
+                    </div>
+                `;
+            }
+
+            if (data.training_needed !== undefined) {
+                html += `
+                    <div class="result-item">
+                        <div class="result-label">Training Needed</div>
+                        <div class="result-value">${data.training_needed ? '✓ Yes' : '✗ No'}</div>
+                    </div>
+                `;
+            }
+
+            if (data.processing_notes) {
+                html += `
+                    <div class="result-item">
+                        <div class="result-label">Processing Notes</div>
+                        <div class="result-value">${data.processing_notes}</div>
+                    </div>
+                `;
+            }
+
+            if (data.skills && data.skills.length > 0) {
+                html += `
+                    <div class="result-item">
+                        <div class="result-label">Skills</div>
+                        <div class="skills-list">
+                            ${data.skills.map(skill => `<span class="skill-tag">${skill}</span>`).join('')}
+                        </div>
+                    </div>
+                `;
+            }
+
+            if (data.certifications && data.certifications.length > 0) {
+                html += `
+                    <div class="result-item">
+                        <div class="result-label">Certifications</div>
+                        <div class="skills-list">
+                            ${data.certifications.map(cert => `<span class="skill-tag">${cert}</span>`).join('')}
+                        </div>
+                    </div>
+                `;
+            }
+
+            if (data.experience && data.experience.length > 0) {
+                html += `
+                    <div class="result-item">
+                        <div class="result-label">Experience</div>
+                        ${data.experience.map(exp => `
+                            <div style="margin-top: 10px; padding: 10px; background: #f8f9ff; border-radius: 5px;">
+                                <strong>${exp.position || 'Position'}</strong> at ${exp.company || 'Company'}<br>
+                                <small>${exp.duration || ''}</small><br>
+                                <small>${exp.description || ''}</small>
+                            </div>
+                        `).join('')}
+                    </div>
+                `;
+            }
+
+            if (data.education) {
+                html += `
+                    <div class="result-item">
+                        <div class="result-label">Education</div>
+                        <div class="result-value">${data.education}</div>
+                    </div>
+                `;
+            }
+
+            resultContent.innerHTML = html;
+            result.classList.add('show');
+        }
+    </script>
+</body>
+</html>

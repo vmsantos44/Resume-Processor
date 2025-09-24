@@ -1,0 +1,32 @@
+{
+  "version": "1.0",
+  "last_updated": "2025-09-24T12:07:00Z",
+  "scoring_rules": {
+    "years_5plus": 30,
+    "certifications": 20,
+    "qa_training": 10,
+    "lsp_experience": 10
+  },
+  "tier_thresholds": {
+    "tier_1_min": 80,
+    "tier_2_min": 60
+  },
+  "known_lsps": [
+    "LanguageLine",
+    "TransPerfect",
+    "Propio",
+    "Lionbridge",
+    "SDL",
+    "RWS",
+    "Welocalize"
+  ],
+  "remote_keywords": [
+    "VRI",
+    "OPI",
+    "Remote Interpreting",
+    "Phone Interpreting",
+    "Video Interpreting",
+    "Telephonic Interpreting",
+    "Virtual Interpreting"
+  ]
+}

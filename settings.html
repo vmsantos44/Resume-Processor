@@ -1,0 +1,403 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Scoring Settings - Resume Processor</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+        }
+
+        .header {
+            background: white;
+            border-radius: 15px;
+            padding: 30px;
+            margin-bottom: 20px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+        }
+
+        h1 {
+            color: #333;
+            margin-bottom: 10px;
+        }
+
+        .nav-links {
+            margin-top: 15px;
+        }
+
+        .nav-links a {
+            color: #667eea;
+            text-decoration: none;
+            margin-right: 20px;
+            font-weight: 500;
+        }
+
+        .nav-links a:hover {
+            text-decoration: underline;
+        }
+
+        .settings-section {
+            background: white;
+            border-radius: 15px;
+            padding: 30px;
+            margin-bottom: 20px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+        }
+
+        h2 {
+            color: #667eea;
+            margin-bottom: 20px;
+            font-size: 1.5em;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        label {
+            display: block;
+            color: #333;
+            font-weight: 600;
+            margin-bottom: 8px;
+        }
+
+        input[type="number"], input[type="text"] {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 1em;
+            transition: border-color 0.3s;
+        }
+
+        input[type="number"]:focus, input[type="text"]:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .tags-input {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            min-height: 50px;
+        }
+
+        .tag {
+            background: #667eea;
+            color: white;
+            padding: 5px 12px;
+            border-radius: 20px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .tag-remove {
+            cursor: pointer;
+            font-weight: bold;
+        }
+
+        .tag-input {
+            border: none;
+            outline: none;
+            flex: 1;
+            min-width: 150px;
+        }
+
+        .button {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 15px 40px;
+            border-radius: 30px;
+            font-size: 1.1em;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+            margin-right: 10px;
+        }
+
+        .button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(102, 126, 234, 0.4);
+        }
+
+        .button-secondary {
+            background: #6c757d;
+        }
+
+        .version-info {
+            background: #f8f9ff;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            color: #666;
+        }
+
+        .scoring-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+        }
+
+        .success-message, .error-message {
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            display: none;
+        }
+
+        .success-message {
+            background: #d4edda;
+            color: #155724;
+        }
+
+        .error-message {
+            background: #f8d7da;
+            color: #721c24;
+        }
+
+        .success-message.show, .error-message.show {
+            display: block;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>⚙️ Scoring Settings</h1>
+            <p style="color: #666;">Configure dynamic scoring rules for resume processing</p>
+            <div class="nav-links">
+                <a href="/">← Upload</a>
+                <a href="/dashboard">Dashboard</a>
+                <a href="/settings/page">Settings</a>
+            </div>
+        </div>
+
+        <div id="successMessage" class="success-message"></div>
+        <div id="errorMessage" class="error-message"></div>
+
+        <div class="settings-section">
+            <div class="version-info">
+                <strong>Version:</strong> <span id="version">Loading...</span><br>
+                <strong>Last Updated:</strong> <span id="lastUpdated">Loading...</span>
+            </div>
+
+            <h2>📊 Scoring Rules (Points)</h2>
+            <div class="scoring-grid">
+                <div class="form-group">
+                    <label>Years (>5 years experience)</label>
+                    <input type="number" id="years_5plus" min="0" max="100">
+                </div>
+                <div class="form-group">
+                    <label>Certifications</label>
+                    <input type="number" id="certifications" min="0" max="100">
+                </div>
+                <div class="form-group">
+                    <label>QA/Training Experience</label>
+                    <input type="number" id="qa_training" min="0" max="100">
+                </div>
+                <div class="form-group">
+                    <label>LSP Experience</label>
+                    <input type="number" id="lsp_experience" min="0" max="100">
+                </div>
+            </div>
+        </div>
+
+        <div class="settings-section">
+            <h2>🎯 Tier Thresholds</h2>
+            <div class="scoring-grid">
+                <div class="form-group">
+                    <label>Tier 1 Minimum Score</label>
+                    <input type="number" id="tier_1_min" min="0" max="100">
+                </div>
+                <div class="form-group">
+                    <label>Tier 2 Minimum Score</label>
+                    <input type="number" id="tier_2_min" min="0" max="100">
+                </div>
+            </div>
+        </div>
+
+        <div class="settings-section">
+            <h2>🏢 Known LSPs</h2>
+            <div class="form-group">
+                <div class="tags-input" id="lspsContainer">
+                    <input type="text" class="tag-input" id="lspInput" placeholder="Type and press Enter">
+                </div>
+            </div>
+        </div>
+
+        <div class="settings-section">
+            <h2>🔑 Remote Keywords</h2>
+            <div class="form-group">
+                <div class="tags-input" id="keywordsContainer">
+                    <input type="text" class="tag-input" id="keywordInput" placeholder="Type and press Enter">
+                </div>
+            </div>
+        </div>
+
+        <div class="settings-section">
+            <button class="button" onclick="saveSettings()">💾 Save Settings</button>
+            <button class="button button-secondary" onclick="resetSettings()">🔄 Reset to Defaults</button>
+        </div>
+    </div>
+
+    <script>
+        let currentSettings = {};
+        let lsps = [];
+        let keywords = [];
+
+        async function loadSettings() {
+            try {
+                const response = await fetch('/settings');
+                currentSettings = await response.json();
+                
+                document.getElementById('version').textContent = currentSettings.version || '1.0';
+                document.getElementById('lastUpdated').textContent = currentSettings.last_updated ? new Date(currentSettings.last_updated).toLocaleString() : 'Never';
+                
+                document.getElementById('years_5plus').value = currentSettings.scoring_rules.years_5plus;
+                document.getElementById('certifications').value = currentSettings.scoring_rules.certifications;
+                document.getElementById('qa_training').value = currentSettings.scoring_rules.qa_training;
+                document.getElementById('lsp_experience').value = currentSettings.scoring_rules.lsp_experience;
+                
+                document.getElementById('tier_1_min').value = currentSettings.tier_thresholds.tier_1_min;
+                document.getElementById('tier_2_min').value = currentSettings.tier_thresholds.tier_2_min;
+                
+                lsps = [...currentSettings.known_lsps];
+                keywords = [...currentSettings.remote_keywords];
+                
+                renderTags('lspsContainer', lsps, 'lsp');
+                renderTags('keywordsContainer', keywords, 'keyword');
+            } catch (error) {
+                showError('Failed to load settings: ' + error.message);
+            }
+        }
+
+        function renderTags(containerId, items, type) {
+            const container = document.getElementById(containerId);
+            const input = container.querySelector('.tag-input');
+            
+            container.querySelectorAll('.tag').forEach(tag => tag.remove());
+            
+            items.forEach(item => {
+                const tag = document.createElement('div');
+                tag.className = 'tag';
+                tag.innerHTML = `${item} <span class="tag-remove" onclick="removeTag('${type}', '${item}')">×</span>`;
+                container.insertBefore(tag, input);
+            });
+        }
+
+        function removeTag(type, item) {
+            if (type === 'lsp') {
+                lsps = lsps.filter(l => l !== item);
+                renderTags('lspsContainer', lsps, 'lsp');
+            } else {
+                keywords = keywords.filter(k => k !== item);
+                renderTags('keywordsContainer', keywords, 'keyword');
+            }
+        }
+
+        document.getElementById('lspInput').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter' && e.target.value.trim()) {
+                lsps.push(e.target.value.trim());
+                renderTags('lspsContainer', lsps, 'lsp');
+                e.target.value = '';
+            }
+        });
+
+        document.getElementById('keywordInput').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter' && e.target.value.trim()) {
+                keywords.push(e.target.value.trim());
+                renderTags('keywordsContainer', keywords, 'keyword');
+                e.target.value = '';
+            }
+        });
+
+        async function saveSettings() {
+            const newSettings = {
+                version: currentSettings.version,
+                scoring_rules: {
+                    years_5plus: parseInt(document.getElementById('years_5plus').value),
+                    certifications: parseInt(document.getElementById('certifications').value),
+                    qa_training: parseInt(document.getElementById('qa_training').value),
+                    lsp_experience: parseInt(document.getElementById('lsp_experience').value)
+                },
+                tier_thresholds: {
+                    tier_1_min: parseInt(document.getElementById('tier_1_min').value),
+                    tier_2_min: parseInt(document.getElementById('tier_2_min').value)
+                },
+                known_lsps: lsps,
+                remote_keywords: keywords
+            };
+
+            try {
+                const response = await fetch('/settings', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify(newSettings)
+                });
+                
+                const result = await response.json();
+                showSuccess('Settings saved successfully! New resumes will use these scoring rules.');
+                loadSettings();
+            } catch (error) {
+                showError('Failed to save settings: ' + error.message);
+            }
+        }
+
+        function resetSettings() {
+            if (confirm('Reset to default settings? This will overwrite your current configuration.')) {
+                const defaults = {
+                    version: "1.0",
+                    scoring_rules: {years_5plus: 30, certifications: 20, qa_training: 10, lsp_experience: 10},
+                    tier_thresholds: {tier_1_min: 80, tier_2_min: 60},
+                    known_lsps: ["LanguageLine", "TransPerfect", "Propio", "Lionbridge", "SDL", "RWS", "Welocalize"],
+                    remote_keywords: ["VRI", "OPI", "Remote Interpreting", "Phone Interpreting", "Video Interpreting", "Telephonic Interpreting", "Virtual Interpreting"]
+                };
+                
+                fetch('/settings', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify(defaults)
+                }).then(() => {
+                    showSuccess('Settings reset to defaults!');
+                    loadSettings();
+                });
+            }
+        }
+
+        function showSuccess(message) {
+            const el = document.getElementById('successMessage');
+            el.textContent = message;
+            el.classList.add('show');
+            setTimeout(() => el.classList.remove('show'), 5000);
+        }
+
+        function showError(message) {
+            const el = document.getElementById('errorMessage');
+            el.textContent = message;
+            el.classList.add('show');
+            setTimeout(() => el.classList.remove('show'), 5000);
+        }
+
+        loadSettings();
+    </script>
+</body>
+</html>

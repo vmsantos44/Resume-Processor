@@ -1,0 +1,350 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Dashboard - Resume Processor</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        .header {
+            background: white;
+            border-radius: 15px;
+            padding: 30px;
+            margin-bottom: 20px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+        }
+
+        h1 {
+            color: #333;
+            margin-bottom: 10px;
+        }
+
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .stat-card {
+            background: white;
+            border-radius: 15px;
+            padding: 20px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+            text-align: center;
+        }
+
+        .stat-number {
+            font-size: 2.5em;
+            font-weight: bold;
+            color: #667eea;
+            margin-bottom: 5px;
+        }
+
+        .stat-label {
+            color: #666;
+            font-size: 0.9em;
+        }
+
+        .filters {
+            background: white;
+            border-radius: 15px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+        }
+
+        .filter-buttons {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .filter-btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 25px;
+            cursor: pointer;
+            background: #f0f2ff;
+            color: #667eea;
+            font-weight: 500;
+            transition: all 0.3s;
+        }
+
+        .filter-btn.active {
+            background: #667eea;
+            color: white;
+        }
+
+        .candidates-table {
+            background: white;
+            border-radius: 15px;
+            padding: 20px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+            overflow-x: auto;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        th {
+            background: #667eea;
+            color: white;
+            padding: 15px;
+            text-align: left;
+            font-weight: 600;
+        }
+
+        td {
+            padding: 15px;
+            border-bottom: 1px solid #f0f0f0;
+        }
+
+        tr:hover {
+            background: #f8f9ff;
+        }
+
+        .status-badge {
+            display: inline-block;
+            padding: 5px 15px;
+            border-radius: 20px;
+            font-size: 0.85em;
+            font-weight: 600;
+        }
+
+        .status-processed {
+            background: #d4edda;
+            color: #155724;
+        }
+
+        .status-uploaded {
+            background: #fff3cd;
+            color: #856404;
+        }
+
+        .status-failed {
+            background: #f8d7da;
+            color: #721c24;
+        }
+
+        .status-duplicate {
+            background: #d1ecf1;
+            color: #0c5460;
+        }
+
+        .action-btn {
+            padding: 8px 15px;
+            border: none;
+            border-radius: 20px;
+            cursor: pointer;
+            background: #667eea;
+            color: white;
+            font-size: 0.85em;
+            transition: all 0.2s;
+        }
+
+        .action-btn:hover {
+            background: #764ba2;
+            transform: translateY(-2px);
+        }
+
+        .tier-score {
+            font-weight: bold;
+            color: #667eea;
+        }
+
+        .sync-status {
+            font-size: 0.85em;
+            color: #28a745;
+        }
+
+        .sync-status.not-synced {
+            color: #dc3545;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>📊 Admin Dashboard</h1>
+            <p style="color: #666;">Manage and monitor candidate resume processing</p>
+            <div style="margin-top: 15px;">
+                <a href="/" style="color: #667eea; text-decoration: none; margin-right: 20px; font-weight: 500;">← Upload</a>
+                <a href="/dashboard" style="color: #667eea; text-decoration: none; margin-right: 20px; font-weight: 500;">Dashboard</a>
+                <a href="/settings/page" style="color: #667eea; text-decoration: none; font-weight: 500;">⚙️ Settings</a>
+            </div>
+        </div>
+
+        <div class="stats">
+            <div class="stat-card">
+                <div class="stat-number" id="totalCount">0</div>
+                <div class="stat-label">Total Candidates</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number" id="processedCount">0</div>
+                <div class="stat-label">Processed</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number" id="failedCount">0</div>
+                <div class="stat-label">Failed</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number" id="duplicateCount">0</div>
+                <div class="stat-label">Duplicates</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number" id="syncedCount">0</div>
+                <div class="stat-label">Synced to CRM</div>
+            </div>
+        </div>
+
+        <div class="filters">
+            <div class="filter-buttons">
+                <button class="filter-btn active" onclick="filterCandidates('all')">All</button>
+                <button class="filter-btn" onclick="filterCandidates('processed')">Processed</button>
+                <button class="filter-btn" onclick="filterCandidates('uploaded')">Needs Processing</button>
+                <button class="filter-btn" onclick="filterCandidates('failed')">Needs Attention</button>
+                <button class="filter-btn" onclick="filterCandidates('duplicate')">Duplicates</button>
+            </div>
+        </div>
+
+        <div class="candidates-table">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Name</th>
+                        <th>Email</th>
+                        <th>Role</th>
+                        <th>Primary Lang</th>
+                        <th>Remote Exp</th>
+                        <th>Status</th>
+                        <th>Tier</th>
+                        <th>Qualify</th>
+                        <th>CRM Sync</th>
+                        <th>Uploaded</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="candidatesBody">
+                    <tr>
+                        <td colspan="8" style="text-align: center; color: #999;">Loading candidates...</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <script>
+        let allCandidates = {};
+        let currentFilter = 'all';
+
+        async function loadCandidates() {
+            try {
+                const response = await fetch('/candidates');
+                allCandidates = await response.json();
+                updateStats();
+                displayCandidates();
+            } catch (error) {
+                console.error('Error loading candidates:', error);
+            }
+        }
+
+        function updateStats() {
+            const candidates = Object.values(allCandidates);
+            document.getElementById('totalCount').textContent = candidates.length;
+            document.getElementById('processedCount').textContent = 
+                candidates.filter(c => c.status === 'processed').length;
+            document.getElementById('failedCount').textContent = 
+                candidates.filter(c => c.status === 'failed').length;
+            document.getElementById('duplicateCount').textContent = 
+                candidates.filter(c => c.status === 'duplicate').length;
+            document.getElementById('syncedCount').textContent = 
+                candidates.filter(c => c.synced).length;
+        }
+
+        function filterCandidates(status) {
+            currentFilter = status;
+            document.querySelectorAll('.filter-btn').forEach(btn => btn.classList.remove('active'));
+            event.target.classList.add('active');
+            displayCandidates();
+        }
+
+        function displayCandidates() {
+            const tbody = document.getElementById('candidatesBody');
+            let candidates = Object.values(allCandidates);
+
+            if (currentFilter !== 'all') {
+                candidates = candidates.filter(c => c.status === currentFilter);
+            }
+
+            if (candidates.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="8" style="text-align: center; color: #999;">No candidates found</td></tr>';
+                return;
+            }
+
+            tbody.innerHTML = candidates.map(candidate => {
+                const data = candidate.parsed_data || {};
+                return `
+                    <tr>
+                        <td>${data.name || 'N/A'}</td>
+                        <td>${data.email || candidate.id}</td>
+                        <td>${data.role_relevance || 'N/A'}</td>
+                        <td>${data.primary_language || 'N/A'}</td>
+                        <td>${data.remote_experience ? '✓ Yes' : '✗ No'}</td>
+                        <td><span class="status-badge status-${candidate.status}">${candidate.status}</span></td>
+                        <td>${data.tier_level ? `${data.tier_level} <span class="tier-score">(${data.tier_score || 0})</span>` : 'N/A'}</td>
+                        <td>${data.qualify || 'N/A'}</td>
+                        <td class="sync-status ${candidate.synced ? '' : 'not-synced'}">
+                            ${candidate.synced ? '✓ Synced' : '✗ Not Synced'}
+                        </td>
+                        <td>${new Date(candidate.uploaded_at).toLocaleString()}</td>
+                        <td>
+                            ${candidate.status === 'failed' || candidate.status === 'uploaded' ? 
+                                `<button class="action-btn" onclick="retryCandidate('${candidate.id}')">Retry</button>` : 
+                                `<button class="action-btn" onclick="viewCandidate('${candidate.id}')">View</button>`}
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        async function retryCandidate(candidateId) {
+            try {
+                const response = await fetch(`/retry/${candidateId}`, { method: 'POST' });
+                const result = await response.json();
+                alert(result.status === 'processed' ? 'Successfully processed!' : `Status: ${result.status}`);
+                loadCandidates();
+            } catch (error) {
+                alert('Error retrying candidate: ' + error.message);
+            }
+        }
+
+        function viewCandidate(candidateId) {
+            const candidate = allCandidates[candidateId];
+            alert(JSON.stringify(candidate.parsed_data, null, 2));
+        }
+
+        loadCandidates();
+        setInterval(loadCandidates, 10000);
+    </script>
+</body>
+</html>
