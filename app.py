@@ -4,10 +4,16 @@ import hashlib
 import requests
 import csv
 import io
+try:
+    import magic
+    MAGIC_AVAILABLE = True
+except ImportError:
+    MAGIC_AVAILABLE = False
 from datetime import datetime
 from flask import Flask, request, jsonify, render_template_string, Response
 from flask_cors import CORS
 from werkzeug.utils import secure_filename
+from functools import wraps
 import PyPDF2
 import pdfplumber
 import docx
@@ -44,6 +50,12 @@ def classify_location(address_text: str, phone: str) -> str:
 
 UPLOAD_FOLDER = 'resumes'
 ALLOWED_EXTENSIONS = {'pdf', 'doc', 'docx'}
+ALLOWED_MIME_TYPES = {
+    'application/pdf': 'pdf',
+    'application/msword': 'doc', 
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document': 'docx'
+}
+MAX_FILE_SIZE = 10 * 1024 * 1024  # 10MB
 CANDIDATES_DB_FILE = 'candidates_db.json'
 SCORING_SETTINGS_FILE = 'scoring_settings.json'
 
@@ -51,6 +63,76 @@ os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
 client = OpenAI(api_key=os.getenv('OPENAI_API_KEY'))
 ZOHO_FLOW_WEBHOOK = os.getenv('ZOHO_FLOW_WEBHOOK', '')
+ADMIN_USERNAME = os.getenv('ADMIN_USERNAME', 'admin')
+ADMIN_PASSWORD = os.getenv('ADMIN_PASSWORD', 'secure123')
+
+def require_auth(f):
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        auth = request.authorization
+        if not auth or not (auth.username == ADMIN_USERNAME and auth.password == ADMIN_PASSWORD):
+            # Send WWW-Authenticate header to trigger browser login prompt
+            response = jsonify({'error': 'Authentication required'})
+            response.headers['WWW-Authenticate'] = 'Basic realm="Admin Access"'
+            return response, 401
+        return f(*args, **kwargs)
+    return decorated
+
+def validate_file(file):
+    if file.filename == '':
+        return False, "No file selected"
+    
+    # Check file size
+    file.seek(0, os.SEEK_END)
+    size = file.tell()
+    file.seek(0)
+    
+    if size > MAX_FILE_SIZE:
+        return False, f"File too large. Maximum size is {MAX_FILE_SIZE // (1024*1024)}MB"
+    
+    if size == 0:
+        return False, "File is empty"
+    
+    # Check file extension
+    if not allowed_file(file.filename):
+        return False, "Invalid file type. Only PDF and Word documents allowed"
+    
+    # Advanced MIME type checking if magic is available
+    if MAGIC_AVAILABLE:
+        file_content = file.read(1024)  # Read first 1KB
+        file.seek(0)
+        
+        try:
+            mime_type = magic.from_buffer(file_content, mime=True)
+            if mime_type not in ALLOWED_MIME_TYPES:
+                return False, f"Invalid file type. Only PDF and Word documents allowed. Got: {mime_type}"
+            
+            # Verify extension matches MIME type
+            expected_ext = ALLOWED_MIME_TYPES[mime_type]
+            actual_ext = file.filename.rsplit('.', 1)[1].lower() if '.' in file.filename else ''
+            
+            if actual_ext != expected_ext:
+                return False, f"File extension doesn't match content type"
+                
+        except Exception as e:
+            # Fall back to extension checking if magic fails
+            print(f"Magic validation failed, using extension check: {str(e)}")
+    else:
+        # Basic file signature checking without magic
+        file_content = file.read(8)  # Read first 8 bytes
+        file.seek(0)
+        
+        # Check basic file signatures
+        if file_content.startswith(b'%PDF-'):
+            # PDF file
+            if not file.filename.lower().endswith('.pdf'):
+                return False, "File appears to be PDF but has wrong extension"
+        elif file_content.startswith(b'PK\x03\x04'):
+            # ZIP-based format (likely DOCX)
+            if not file.filename.lower().endswith(('.docx', '.doc')):
+                return False, "File appears to be Office document but has wrong extension"
+    
+    return True, "Valid file"
 
 def get_scoring_settings():
     if os.path.exists(SCORING_SETTINGS_FILE):
@@ -80,11 +162,14 @@ def extract_text_from_pdf(filepath):
                 page_text = page.extract_text()
                 if page_text:
                     text += page_text + "\n"
-    except:
-        with open(filepath, 'rb') as file:
-            pdf_reader = PyPDF2.PdfReader(file)
-            for page in pdf_reader.pages:
-                text += page.extract_text() + "\n"
+    except (Exception) as e:
+        try:
+            with open(filepath, 'rb') as file:
+                pdf_reader = PyPDF2.PdfReader(file)
+                for page in pdf_reader.pages:
+                    text += page.extract_text() + "\n"
+        except Exception as fallback_error:
+            raise Exception(f"Failed to extract PDF text: {str(e)}, fallback error: {str(fallback_error)}")
     return text.strip()
 
 def convert_docx_to_pdf(docx_path):
@@ -99,7 +184,8 @@ def convert_docx_to_pdf(docx_path):
     try:
         convert(docx_path, pdf_path)
         return pdf_path
-    except:
+    except Exception as e:
+        print(f"Error converting DOCX to PDF: {str(e)}")
         return None
 
 def clean_and_fix_text(text):
@@ -148,7 +234,8 @@ def extract_text_from_docx(filepath):
                               capture_output=True, text=True, timeout=10)
         if result.stdout and len(result.stdout.strip()) > 10:
             return clean_and_fix_text(result.stdout)
-    except:
+    except Exception as e:
+        print(f"Error using textutil: {str(e)}")
         pass
     
     return text if text else ""
@@ -329,11 +416,10 @@ def upload_resume():
     
     file = request.files['file']
     
-    if file.filename == '':
-        return jsonify({'error': 'No file selected'}), 400
-    
-    if not allowed_file(file.filename):
-        return jsonify({'error': 'Invalid file type. Only PDF and Word documents allowed'}), 400
+    # Use enhanced file validation
+    is_valid, error_message = validate_file(file)
+    if not is_valid:
+        return jsonify({'error': error_message}), 400
     
     filename = secure_filename(file.filename)
     file_extension = filename.rsplit('.', 1)[1].lower()
@@ -426,6 +512,7 @@ def upload_resume():
         }), 200
 
 @app.route('/retry/<candidate_id>', methods=['POST'])
+@require_auth
 def retry_candidate(candidate_id):
     db = get_candidates_db()
     
@@ -489,6 +576,7 @@ def retry_candidate(candidate_id):
     }), 200
 
 @app.route('/candidates', methods=['GET'])
+@require_auth
 def get_candidates():
     db = get_candidates_db()
     status_filter = request.args.get('status')
@@ -500,24 +588,29 @@ def get_candidates():
     return jsonify(db), 200
 
 @app.route('/settings', methods=['GET'])
+@require_auth
 def get_settings():
     return jsonify(get_scoring_settings()), 200
 
 @app.route('/settings', methods=['POST'])
+@require_auth
 def update_settings():
     new_settings = request.json
     save_scoring_settings(new_settings)
     return jsonify({'message': 'Settings updated successfully', 'settings': new_settings}), 200
 
 @app.route('/settings/page')
+@require_auth
 def settings_page():
     return render_template_string(open('settings.html').read())
 
 @app.route('/dashboard')
+@require_auth
 def dashboard():
     return render_template_string(open('dashboard.html').read())
 
 @app.route('/export/csv')
+@require_auth
 def export_csv():
     db = get_candidates_db()
     candidates = list(db.values())
@@ -579,6 +672,7 @@ def export_csv():
     )
 
 @app.route('/export/excel')
+@require_auth
 def export_excel():
     db = get_candidates_db()
     candidates = list(db.values())
@@ -650,4 +744,8 @@ def index():
         return render_template_string(f.read())
 
 if __name__ == '__main__':
-    app.run(debug=True, host='0.0.0.0', port=5001)
+    # Use environment variable for debug mode, default to False for security
+    debug_mode = os.getenv('FLASK_DEBUG', 'False').lower() == 'true'
+    # Bind to localhost only for security, unless explicitly configured
+    host = os.getenv('FLASK_HOST', '127.0.0.1')
+    app.run(debug=debug_mode, host=host, port=5001)
